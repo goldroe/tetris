@@ -97,6 +97,10 @@ GLuint load_shaders(const char *vertex_path, const char *fragment_path) {
 	return program_id;
 }
 
+void sprite_draw(vec2 pos, vec2 size) {
+
+}
+
 int main(int argc, char **argv) {
 	if (!glfwInit()) {
 		return -1;
@@ -121,12 +125,13 @@ int main(int argc, char **argv) {
 	GLuint shader = load_shaders("data/shaders/vertex.glsl", "data/shaders/fragment.glsl");
 
 	float vertices[] = {
-		-1.0f, -1.0f,
-		-1.0f,  1.0f,
-		 1.0f,  1.0f,
-		-1.0f, -1.0f,
-		 1.0f,  1.0f,
-		 1.0f, -1.0f,
+        0.0f, 1.0f,
+        1.0f, 0.0f,
+        0.0f, 0.0f,
+
+        0.0f, 1.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
 	};
 
 	GLuint vao, vbo;
@@ -147,7 +152,20 @@ int main(int argc, char **argv) {
 	GLint model_loc = glGetUniformLocation(shader, "model");
 	GLint color_loc = glGetUniformLocation(shader, "color");
 
-	srand((unsigned int)glfwGetTime());
+#define GRID_X 9
+#define GRID_Y 16
+
+	vec3 colors[GRID_X] = {
+		(vec3){0.f, 0.f, 0.f},
+		(vec3){0.f, 0.f, 1.f},
+		(vec3){0.f, 1.f, 0.f},
+		(vec3){0.f, 1.f, 1.f},
+		(vec3){1.f, 0.f, 0.f},
+		(vec3){1.f, 0.f, 1.f},
+		(vec3){1.f, 1.f, 0.f},
+		(vec3){1.f, 1.f, 1.f},
+		(vec3){0.2f, 0.4f, 5.f},
+	};
 
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -161,33 +179,22 @@ int main(int argc, char **argv) {
 
 		mat4 proj = Orthographic(0.f, (float)width, 0.f, (float)height, -1.0f, 1.0f);
 
-#define GRID_X 9
-#define GRID_Y 16
-
 		vec2 center = {width/2.f, height/2.f};
 		vec2 block_size = {(float)width/GRID_X, (float)height/GRID_Y};
 
 		glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (float *)&proj);
 
-		vec3 col = {0.f, 0.f, 0.f};
 		for (int y = 0; y < GRID_Y; y++) {
-			vec3 color = {0.f, 0.f, 0.f};
-			col.R = (float)rand() / (float)RAND_MAX;
-			col.G = (float)rand() / (float)RAND_MAX;
-			col.B = (float)rand() / (float)RAND_MAX;
-
 			for (int x = 0; x < GRID_X; x++) {
 				vec2 block_pos = {x * block_size.Width, y * block_size.Height};
 				mat4 model = Translate((vec3){block_pos.X, block_pos.Y, 0.f});
-				mat4 scale = Scale((vec3){block_size.X, block_size.Y, 1.f});
+				mat4 scale = Scale((vec3){block_size.Width, block_size.Height, 1.f});
 				model = MultiplyMat4(model, scale);
 
-				color.R += col.R / 9.f;
-				color.G += col.G / 9.f;
-				color.B += col.B / 9.f;
-				
+				vec3 color = colors[x];
+
 				glUniformMatrix4fv(model_loc, 1, GL_FALSE, (float *)&model);
-				glUniform3f(color_loc, color.R, color.G, color.G);
+				glUniform3fv(color_loc, 1, (float *)&color);
 
 				glDrawArrays(GL_TRIANGLES, 0, 6);
 			}
