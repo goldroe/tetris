@@ -97,7 +97,13 @@ GLuint load_shaders(const char *vertex_path, const char *fragment_path) {
 	return program_id;
 }
 
-void sprite_draw(vec2 pos, vec2 size) {
+vec2 get_window_size(GLFWwindow *window) {
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+	return Vec2((float)width, (float)height);
+}
+
+void render_quad(vec2 pos, vec2 size, vec3 color) {
 
 }
 
@@ -151,9 +157,10 @@ int main(int argc, char **argv) {
 	GLint proj_loc =  glGetUniformLocation(shader, "proj");
 	GLint model_loc = glGetUniformLocation(shader, "model");
 	GLint color_loc = glGetUniformLocation(shader, "color");
+	
 
-#define GRID_X 9
-#define GRID_Y 16
+#define GRID_X 10
+#define GRID_Y 18
 
 	vec3 colors[GRID_X] = {
 		(vec3){0.f, 0.f, 0.f},
@@ -171,24 +178,23 @@ int main(int argc, char **argv) {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 
-		int width, height;
-		glfwGetWindowSize(window, &width, &height);
-
 		glUseProgram(shader);
 		glBindVertexArray(vao);
 
-		mat4 proj = Orthographic(0.f, (float)width, 0.f, (float)height, -1.0f, 1.0f);
+		vec2 window_size = get_window_size(window);
+		
+		mat4 proj = Orthographic(0.f, (float)window_size.width, 0.f, (float)window_size.height, -1.0f, 1.0f);
 
-		vec2 center = {width/2.f, height/2.f};
-		vec2 block_size = {(float)width/GRID_X, (float)height/GRID_Y};
+		vec2 center = Vec2(window_size.width/2.f, window_size.height/2.f);
+		vec2 block_size = Vec2(window_size.width/GRID_X, window_size.height/GRID_Y);
 
 		glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (float *)&proj);
 
 		for (int y = 0; y < GRID_Y; y++) {
 			for (int x = 0; x < GRID_X; x++) {
-				vec2 block_pos = {x * block_size.Width, y * block_size.Height};
-				mat4 model = Translate((vec3){block_pos.X, block_pos.Y, 0.f});
-				mat4 scale = Scale((vec3){block_size.Width, block_size.Height, 1.f});
+				vec2 block_pos = {x * block_size.width, y * block_size.height};
+				mat4 model = Translate((vec3){block_pos.x, block_pos.y, 0.f});
+				mat4 scale = Scale((vec3){block_size.width, block_size.height, 1.f});
 				model = MultiplyMat4(model, scale);
 
 				vec3 color = colors[x];
