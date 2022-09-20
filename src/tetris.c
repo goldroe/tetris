@@ -26,31 +26,34 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
+
+int get_file_size(FILE *fp) {
+	fseek(fp, 0L, SEEK_END);
+	int result = ftell(fp);
+	rewind(fp);
+	return result;
+}
+
 GLuint load_shaders(const char *vertex_path, const char *fragment_path) {
 	GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 
-	GLint vertex_size = 0;
 	char *vertex_source = NULL;
-	FILE *vertex_file = fopen(vertex_path, "r");
+	FILE *vertex_file = fopen(vertex_path, "rb");
 	ASSERT(vertex_file);
-	fseek(vertex_file, 0, SEEK_END);
-	vertex_size = ftell(vertex_file);
+	int vertex_size = get_file_size(vertex_file);
 	vertex_source = malloc(vertex_size + 1);
-	rewind(vertex_file);
-	fread(vertex_source, sizeof(char), vertex_size, vertex_file);
+	fread(vertex_source, 1, vertex_size, vertex_file);
 	vertex_source[vertex_size] = 0;
 	fclose(vertex_file);
 
-	GLint fragment_size = 0;
 	char *fragment_source = NULL;
-	FILE *fragment_file = fopen(fragment_path, "r");
+	FILE *fragment_file = fopen(fragment_path, "rb");
 	ASSERT(fragment_file);
-	fseek(fragment_file, 0, SEEK_END);
-	fragment_size = ftell(fragment_file);
+	int fragment_size = get_file_size(fragment_file);
 	fragment_source = malloc(fragment_size + 1);
 	rewind(fragment_file);
-	fread(fragment_source, sizeof(char), fragment_size, fragment_file);
+	fread(fragment_source, 1, fragment_size, fragment_file);
 	fragment_source[fragment_size] = 0;
 	fclose(fragment_file);
 
