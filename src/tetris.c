@@ -18,9 +18,21 @@ typedef hmm_vec2 vec2;
 typedef hmm_vec3 vec3;
 typedef hmm_mat4 mat4;
 
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #define ASSERT assert
+
+#define WINDOW_WIDTH 550
+#define WINDOW_HEIGHT 800
+
+typedef struct {
+	int x;
+	int y;
+	bool filled;
+	vec3 color;
+} Cell;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -110,16 +122,26 @@ void render_quad(vec2 pos, vec2 size, vec3 color) {
 
 }
 
+vec3 colors[] = {
+	{1.0f, 0.0f, 0.0f},
+	{0.0f, 1.0f, 0.0f},
+	{0.0f, 0.0f, 1.0f},
+	{1.0f, 1.0f, 0.0f},
+};
+
 int main(int argc, char **argv) {
 	if (!glfwInit()) {
 		return -1;
 	}
+	
+	srand((unsigned int)(glfwGetTime() * 1000));
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	GLFWwindow *window = glfwCreateWindow(1280, 720, "Tetris", NULL, NULL);
+	GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Tetris", NULL, NULL);
 	if (!window) {
 		glfwTerminate();
 		return -1;
@@ -162,22 +184,29 @@ int main(int argc, char **argv) {
 	GLint color_loc = glGetUniformLocation(shader, "color");
 	
 
-#define GRID_X 10
-#define GRID_Y 18
+#define CELLS_X 12
+#define CELLS_Y 20
+	
+	Cell grid[CELLS_Y][CELLS_X] = { 0 };
+	for (int y = 0; y < CELLS_Y; y++) {
+		for (int x = 0; x < CELLS_X; x++) {
+			grid[y][x].x = x;
+			grid[y][x].y = y;
+			grid[y][x].filled = false;
+		}
+	}
 
-	vec3 colors[GRID_X] = {
-		(vec3){0.f, 0.f, 0.f},
-		(vec3){0.f, 0.f, 1.f},
-		(vec3){0.f, 1.f, 0.f},
-		(vec3){0.f, 1.f, 1.f},
-		(vec3){1.f, 0.f, 0.f},
-		(vec3){1.f, 0.f, 1.f},
-		(vec3){1.f, 1.f, 0.f},
-		(vec3){1.f, 1.f, 1.f},
-		(vec3){0.2f, 0.4f, 5.f},
-	};
-
+	bool landed = false;	
+	bool landing = true;
+	float move_time = 1.0f;
+	Cell new_cell = { 0 };
+	new_cell.x = CELLS_X / 2;
+	new_cells.y = CELLS_Y - 1;
+	new_cells.color = colors[0];
+	
+	float delta = glfwGetTime();
 	while (!glfwWindowShouldClose(window)) {
+		delta = glfwGetTime() - delta;
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 
@@ -189,18 +218,44 @@ int main(int argc, char **argv) {
 		mat4 proj = Orthographic(0.f, (float)window_size.width, 0.f, (float)window_size.height, -1.0f, 1.0f);
 
 		vec2 center = Vec2(window_size.width/2.f, window_size.height/2.f);
-		vec2 block_size = Vec2(window_size.width/GRID_X, window_size.height/GRID_Y);
+		vec2 block_size = Vec2(window_size.width/CELLS_X, window_size.height/CELLS_Y);
 
 		glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (float *)&proj);
+		
+		// update
+		if (landing) {
+			if (move_time <= 0.0f) {
+				if (new_cell.y >= 1 && !grid[new_cell.y][new_cell.x].filled)
+					grid[new_cell.y][new_cell.x].filled = false;
+					new_cell.y -= 1;
+					grid[new_cell.y][new_cell.x].filled = true;
+				} else {
+					new_cell.y = COLORS_Y - 1;
+					new_cell.x = COLORS_X / 2;
+					new_cell.color = colors[0];
+				}
+			} else {
+				move_time -= delta;
+			}
+		} else {
+			new_cell.y = COLORS_Y - 1;
+			new_cell.x = COLORS_X / 2;
+			new_cell.color = colors[rand() % 4];
+			landing = true;
+		}
 
-		for (int y = 0; y < GRID_Y; y++) {
-			for (int x = 0; x < GRID_X; x++) {
+		// render
+		for (int y = 0; y < CELLS_Y; y++) {
+			for (int x = 0; x < CELLS_X; x++) {
+				Cell cell = grid[y][x];
+				if (!cell.filled) continue;
+
 				vec2 block_pos = {x * block_size.width, y * block_size.height};
 				mat4 model = Translate((vec3){block_pos.x, block_pos.y, 0.f});
 				mat4 scale = Scale((vec3){block_size.width, block_size.height, 1.f});
 				model = MultiplyMat4(model, scale);
 
-				vec3 color = colors[x];
+				vec3 color = cell.color;
 
 				glUniformMatrix4fv(model_loc, 1, GL_FALSE, (float *)&model);
 				glUniform3fv(color_loc, 1, (float *)&color);
