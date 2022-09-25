@@ -27,6 +27,11 @@ typedef hmm_mat4 mat4;
 #define WINDOW_WIDTH 550
 #define WINDOW_HEIGHT 800
 
+#define MOVE_TIME 0.4f
+
+#define CELLS_X 12
+#define CELLS_Y 20
+	
 typedef struct {
 	int x;
 	int y;
@@ -37,7 +42,6 @@ typedef struct {
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
-
 
 int get_file_size(FILE *fp) {
 	fseek(fp, 0L, SEEK_END);
@@ -129,6 +133,19 @@ vec3 colors[] = {
 	{1.0f, 1.0f, 0.0f},
 };
 
+bool move_left;
+bool move_right;
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_A && action == GLFW_PRESS) {
+		move_left = true;
+	}
+    if (key == GLFW_KEY_D && action == GLFW_PRESS) {
+		move_right = true;
+	}
+}
+
 int main(int argc, char **argv) {
 	if (!glfwInit()) {
 		return -1;
@@ -152,6 +169,7 @@ int main(int argc, char **argv) {
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetKeyCallback(window, key_callback);
 
 	GLuint shader = load_shaders("data/shaders/vertex.glsl", "data/shaders/fragment.glsl");
 
@@ -184,10 +202,7 @@ int main(int argc, char **argv) {
 	GLint color_loc = glGetUniformLocation(shader, "color");
 	
 
-#define CELLS_X 12
-#define CELLS_Y 20
-	
-	Cell grid[CELLS_Y][CELLS_X] = { 0 };
+	Cell grid[CELLS_Y][CELLS_X];
 	for (int y = 0; y < CELLS_Y; y++) {
 		for (int x = 0; x < CELLS_X; x++) {
 			grid[y][x].x = x;
@@ -196,19 +211,17 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	bool landed = false;	
-	bool landing = true;
-	float move_time = 1.0f;
-	Cell new_cell = { 0 };
-	new_cell.x = CELLS_X / 2;
-	new_cells.y = CELLS_Y - 1;
-	new_cells.color = colors[0];
-	
-	float delta = glfwGetTime();
+	bool landing = false;
+	float move_time = MOVE_TIME;
+
+	Cell new_cell = {0};
+
+	float last_time;
+	float delta = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
-		delta = glfwGetTime() - delta;
+		last_time = (float)glfwGetTime();
 		glClear(GL_COLOR_BUFFER_BIT);
-		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 		glUseProgram(shader);
 		glBindVertexArray(vao);
@@ -221,26 +234,51 @@ int main(int argc, char **argv) {
 		vec2 block_size = Vec2(window_size.width/CELLS_X, window_size.height/CELLS_Y);
 
 		glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (float *)&proj);
-		
+
+		if (move_left) {
+			if (new_cell.x > 0 && grid[new_cell.y][new_cell.x - 1].filled == false) {
+				grid[new_cell.y][new_cell.x].filled = false;
+				grid[new_cell.y][--new_cell.x] = new_cell;
+				grid[new_cell.y][new_cell.x].filled = true;
+			}
+			move_left = false;
+		}
+		if (move_right) {
+			if (new_cell.x < CELLS_X - 1 && grid[new_cell.y][new_cell.x + 1].filled == false) {
+				grid[new_cell.y][new_cell.x].filled = false;
+				grid[new_cell.y][++new_cell.x] = new_cell;
+				grid[new_cell.y][new_cell.x].filled = true;	
+			}
+			move_right = false;
+		}
+
 		// update
 		if (landing) {
 			if (move_time <= 0.0f) {
-				if (new_cell.y >= 1 && !grid[new_cell.y][new_cell.x].filled)
+				printf("move time up\n");
+				if (new_cell.y >= 1 && !grid[new_cell.y - 1][new_cell.x].filled) {
+					printf("move down\n");
 					grid[new_cell.y][new_cell.x].filled = false;
 					new_cell.y -= 1;
+					grid[new_cell.y][new_cell.x] = new_cell;
 					grid[new_cell.y][new_cell.x].filled = true;
 				} else {
-					new_cell.y = COLORS_Y - 1;
-					new_cell.x = COLORS_X / 2;
-					new_cell.color = colors[0];
+					printf("hit bottom\n");
+					landing = false;
 				}
+
+				move_time = MOVE_TIME;
 			} else {
 				move_time -= delta;
 			}
 		} else {
-			new_cell.y = COLORS_Y - 1;
-			new_cell.x = COLORS_X / 2;
+			printf("new cell\n");
+			new_cell.filled = true;
+			new_cell.y = CELLS_Y - 1;
+			new_cell.x = CELLS_X / 2;
 			new_cell.color = colors[rand() % 4];
+			grid[new_cell.y][new_cell.x] = new_cell;
+			move_time = MOVE_TIME;
 			landing = true;
 		}
 
@@ -249,6 +287,10 @@ int main(int argc, char **argv) {
 			for (int x = 0; x < CELLS_X; x++) {
 				Cell cell = grid[y][x];
 				if (!cell.filled) continue;
+				
+#if 0
+				printf("ROW:%d COL:%d\n", cell.y, cell.x);
+#endif
 
 				vec2 block_pos = {x * block_size.width, y * block_size.height};
 				mat4 model = Translate((vec3){block_pos.x, block_pos.y, 0.f});
@@ -263,9 +305,14 @@ int main(int argc, char **argv) {
 				glDrawArrays(GL_TRIANGLES, 0, 6);
 			}
 		}
-
+		
 		glfwPollEvents();
 		glfwSwapBuffers(window);
+
+		delta = (float)glfwGetTime() - last_time;
+#if 0
+		printf("Delta:%f\n", delta);
+#endif
 	}
 	
 	return 0;
